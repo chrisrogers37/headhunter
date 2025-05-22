@@ -2,6 +2,14 @@ from scrapers.linkedin_scraper import LinkedInScraper
 import json
 from datetime import datetime
 from database.models import SessionLocal, Job
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 def main():
     # Initialize the scraper
@@ -13,9 +21,9 @@ def main():
     max_pages = 2
     max_jobs = 10
     
-    print(f"Starting scrape for '{search_term}' in {location}")
-    print(f"Max pages: {max_pages}, Max jobs: {max_jobs}")
-    print("-" * 50)
+    logger.info(f"Starting scrape for '{search_term}' in {location}")
+    logger.info(f"Max pages: {max_pages}, Max jobs: {max_jobs}")
+    logger.info("-" * 50)
     
     # Run the scraper
     jobs = scraper.scrape_jobs(
@@ -26,13 +34,13 @@ def main():
     )
     
     # Print results
-    print(f"\nScraped {len(jobs)} jobs")
+    logger.info(f"\nScraped {len(jobs)} jobs")
     for job in jobs:
-        print(f"\nTitle: {job['title']}")
-        print(f"Company: {job['company']}")
-        print(f"Location: {job['location']}")
-        print(f"Posted: {job['date_posted']}")
-        print("-" * 50)
+        logger.info(f"\nTitle: {job['title']}")
+        logger.info(f"Company: {job['company']}")
+        logger.info(f"Location: {job['location']}")
+        logger.info(f"Posted: {job['date_posted']}")
+        logger.info("-" * 50)
     
     # Save results to file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -41,19 +49,19 @@ def main():
     with open(filename, 'w') as f:
         json.dump(jobs, f, indent=2)
     
-    print(f"\nResults saved to {filename}")
+    logger.info(f"\nResults saved to {filename}")
     
     # Verify database entries
     db = SessionLocal()
     try:
         db_jobs = db.query(Job).all()
-        print(f"\nFound {len(db_jobs)} jobs in database")
+        logger.info(f"\nFound {len(db_jobs)} jobs in database")
         for job in db_jobs:
-            print(f"\nTitle: {job.title}")
-            print(f"Company: {job.company}")
-            print(f"Location: {job.location}")
-            print(f"Posted: {job.date_posted}")
-            print("-" * 50)
+            logger.info(f"\nTitle: {job.title}")
+            logger.info(f"Company: {job.company}")
+            logger.info(f"Location: {job.location}")
+            logger.info(f"Posted: {job.date_posted}")
+            logger.info("-" * 50)
     finally:
         db.close()
 

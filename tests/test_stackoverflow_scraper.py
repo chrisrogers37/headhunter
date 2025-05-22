@@ -4,12 +4,16 @@ import os
 import logging
 from datetime import datetime
 import json
+import time
+from pathlib import Path
 
 # Add the src directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from scrapers.stackoverflow_scraper import StackOverflowScraper
 from database.models import StackOverflowJob, SessionLocal
+from utils.rate_limiter import RateLimiter
+from utils.monitoring import ScraperMonitor
 
 # Configure logging
 logging.basicConfig(
@@ -39,6 +43,8 @@ class TestStackOverflowScraper(unittest.TestCase):
         self.assertIsNotNone(self.scraper)
         self.assertEqual(self.scraper.base_url, "https://stackoverflowjobs.com")
         self.assertFalse(self.scraper.headless)
+        self.assertIsInstance(self.scraper.rate_limiter, RateLimiter)
+        self.assertIsInstance(self.scraper.monitor, ScraperMonitor)
 
     def test_basic_scraping(self):
         """Test basic scraping functionality."""
@@ -131,6 +137,51 @@ class TestStackOverflowScraper(unittest.TestCase):
         
         # Check if scraping took at least 2 seconds (due to rate limiting)
         self.assertGreaterEqual(duration, 2)
+        
+        # Check if rate limiter is tracking requests
+        self.assertGreater(self.scraper.rate_limiter.request_timestamps, 0)
+
+    def test_monitoring(self):
+        """Test if monitoring is working correctly."""
+        jobs = self.scraper.scrape_jobs(
+            search_term=self.test_search_term,
+            location=self.test_location,
+            max_pages=1,
+            max_jobs=5
+        )
+        
+        # Check if metrics were recorded
+        metrics = self.scraper.monitor.metrics
+        self.assertIsNotNone(metrics.start_time)
+        self.assertIsNotNone(metrics.end_time)
+        self.assertGreaterEqual(metrics.total_jobs_found, 0)
+        self.assertGreaterEqual(metrics.total_jobs_scraped, 0)
+        self.assertGreaterEqual(metrics.total_jobs_saved, 0)
+        
+        # Check if metrics file was created
+        metrics_dir = Path("metrics")
+        self.assertTrue(metrics_dir.exists())
+        metrics_files = list(metrics_dir.glob("stackoverflow_scraper_*.json"))
+        self.assertGreater(len(metrics_files), 0)
+
+    def test_rate_limiter_adaptive_delay(self):
+        """Test if rate limiter adapts to failures."""
+        # Simulate some failures
+        self.scraper.rate_limiter.record_failure()
+        self.scraper.rate_limiter.record_failure()
+        self.scraper.rate_limiter.record_failure()
+        
+        # Check if burst mode is activated
+        self.assertTrue(self.scraper.rate_limiter.burst_mode)
+        
+        # Record a success
+        self.scraper.rate_limiter.record_success()
+        
+        # Check if burst mode is deactivated
+        self.assertFalse(self.scraper.rate_limiter.burst_mode)
+        
+        # Check if consecutive failures are reset
+        self.assertEqual(self.scraper.rate_limiter.consecutive_failures, 0)
 
 if __name__ == '__main__':
     unittest.main() 

@@ -1,85 +1,123 @@
-# Project Roadmap
+# Headhunter Development Roadmap
 
 ## Phase 1: Core Infrastructure ✅
-- [x] Set up project structure
-- [x] Configure development environment
-- [x] Set up PostgreSQL database
-- [x] Create basic database models
-- [x] Implement database connection handling
+- [x] Set up project structure and dependencies
+- [x] Implement basic Stack Overflow Jobs scraper
+- [x] Create database models and connection
+- [x] Add anti-detection measures
+- [x] Implement rate limiting and delays
+- [x] Add error handling and logging
+- [x] Create monitoring system
+- [x] Set up metrics storage (JSON + Database)
 
-## Phase 2: Scraping Implementation ✅
-- [x] Implement Stack Overflow Jobs scraper
-- [x] Extract all fields, including job descriptions, from Stack Overflow Jobs
-- [x] Ensure robust selector and error handling
-- [x] Database can be inspected for results
-- [ ] Test and optimize Stack Overflow Jobs scraper
-- [ ] Add error handling and retry logic
-- [ ] Implement rate limiting
-- [ ] Add proxy support (if needed)
-- [ ] Create scraper monitoring and logging
+## Phase 2: Production Infrastructure ☁️
+### 2.1 Database Setup
+- [ ] Set up AWS RDS PostgreSQL instance (free tier)
+- [ ] Configure security groups and access rules
+- [ ] Set up SSL certificates for secure connections
+- [ ] Create database backup strategy
+- [ ] Test DataGrip connection and queries
+- [ ] Document database connection details
 
-## Phase 3: Cloud Deployment & Data Pipeline (Planned)
-- [ ] Research and select a cloud server provider for running the scraper (e.g., AWS EC2, DigitalOcean, GCP Compute Engine, Azure VM)
-- [ ] Deploy the scraper on a remote/cloud server
-- [ ] Enhance the Stack Overflow scraper to iterate through all paginated job listings
-- [ ] Research and select a managed PostgreSQL cloud database service (e.g., AWS RDS, Google Cloud SQL, Azure Database for PostgreSQL, Supabase, Neon, ElephantSQL)
-- [ ] Set up secure connectivity between the remote scraper server and the managed PostgreSQL instance
-- [ ] Implement a robust data pipeline for writing scraped data from the remote server to the cloud database
-- [ ] Add monitoring and logging for remote/cloud operation
-- [ ] Document all steps and best practices for cloud deployment and data flow
+### 2.2 Scraper Integration
+- [ ] Test scraper with new database connection
+- [ ] Verify job data persistence
+- [ ] Test metrics storage in database
+- [ ] Implement connection pooling
+- [ ] Add database error handling
+- [ ] Create database migration scripts
 
-## Phase 4: Data Processing ⏳
-- [ ] Implement job data normalization
-- [ ] Add data validation
-- [ ] Create data cleaning pipeline
-- [ ] Implement duplicate detection
-- [ ] Add data enrichment (company info, etc.)
+### 2.3 Cloud Infrastructure
+- [ ] Set up AWS account and configure IAM
+- [ ] Create VPC and security groups
+- [ ] Configure CloudWatch for monitoring
+- [ ] Set up S3 bucket for metrics storage
+- [ ] Implement automated backup solution
+- [ ] Configure cost alerts and monitoring
 
-## Phase 5: API Development ⏳
-- [ ] Design API endpoints
-- [ ] Implement basic CRUD operations
-- [ ] Add search functionality
-- [ ] Implement filtering and sorting
-- [ ] Add pagination
-- [ ] Create API documentation
+### 2.4 Scheduling & Automation
+- [ ] Set up AWS EventBridge for scheduling
+- [ ] Configure Lambda function for scraper execution
+- [ ] Implement error notification system
+- [ ] Create monitoring dashboards
+- [ ] Set up automated testing pipeline
+- [ ] Document deployment process
 
-## Phase 6: Analysis Tools ⏳
-- [ ] Implement basic analytics
-- [ ] Add trend analysis
-- [ ] Create data visualization
-- [ ] Implement job matching algorithm
-- [ ] Add salary analysis
+## Phase 3: Vector Database Integration 📦
+- [ ] Set up vector database (e.g., Pinecone, Weaviate, or pgvector)
+- [ ] Implement text embedding pipeline
+- [ ] Create job description embedding models
+- [ ] Set up vector similarity search
+- [ ] Implement batch processing for embeddings
+- [ ] Add embedding versioning and updates
+- [ ] Create embedding quality metrics
 
-## Phase 7: Frontend Development ⏳
-- [ ] Design user interface
-- [ ] Implement basic views
-- [ ] Add search functionality
-- [ ] Create data visualization
+## Phase 3.5: OpenAI Integration & Embedding Generation 🤖
+- [ ] Set up OpenAI API integration
+- [ ] Create embedding generation service
+- [ ] Implement job description processing pipeline
+- [ ] Add embedding status tracking in database
+- [ ] Create batch processing for existing jobs
+- [ ] Implement incremental embedding updates
+- [ ] Add embedding quality validation
+- [ ] Set up cost monitoring and optimization
+- [ ] Create embedding version control
+- [ ] Implement error handling and retry logic
+
+## Phase 4: Resume Matching System 🎯
+- [ ] Implement resume parsing and processing
+- [ ] Create resume embedding pipeline
+- [ ] Build similarity matching algorithm
+- [ ] Implement ranking and scoring system
+- [ ] Add match explanation generation
+- [ ] Create match quality metrics
+- [ ] Implement feedback loop for matches
+
+## Phase 5: API & Interface 🌐
+- [ ] Design and implement REST API
+- [ ] Create resume upload interface
+- [ ] Add match visualization
 - [ ] Implement user authentication
-- [ ] Add job tracking features
+- [ ] Add API rate limiting
+- [ ] Create API documentation
+- [ ] Add match history and tracking
 
-## Phase 8: Testing and Optimization ⏳
-- [ ] Write unit tests
-- [ ] Add integration tests
-- [ ] Implement performance monitoring
-- [ ] Optimize database queries
-- [ ] Add caching layer
+## Phase 6: Advanced Features 🚀
+- [ ] Implement multi-document resume support
+- [ ] Add custom embedding models
+- [ ] Create domain-specific embeddings
+- [ ] Implement match explanation generation
+- [ ] Add match confidence scoring
+- [ ] Create match improvement suggestions
 
-## Phase 9: Deployment ⏳
-- [ ] Set up production environment
-- [ ] Configure CI/CD pipeline
-- [ ] Implement monitoring
-- [ ] Add backup system
-- [ ] Create deployment documentation
+## Current Focus
+- Setting up production database infrastructure
+- Testing scraper with cloud database
+- Implementing monitoring and metrics storage
+- Preparing for automated scheduling
+- Planning OpenAI integration for embeddings
 
-## Future Enhancements
-- [ ] Add support for more job boards
-- [ ] Implement advanced analytics
-- [ ] Add machine learning features
-- [ ] Create mobile app
-- [ ] Add social features
+## Next Steps
+1. Create AWS RDS PostgreSQL instance
+2. Configure database security and access
+3. Test scraper with new database connection
+4. Set up monitoring and metrics storage
+5. Implement automated scheduling
+6. Begin OpenAI integration planning
 
-## Notes
-- LinkedIn and Indeed scrapers are currently on hold due to anti-bot measures
-- Focus is on Stack Overflow Jobs for initial implementation
-- May need to explore alternative data sources or APIs for other job boards 
+## Future Considerations
+- Integration with Stack Overflow Jobs API (if available)
+- Real-time job matching
+- Custom embedding models
+- Multi-language support
+- Integration with ATS systems
+- Custom matching rules and filters
+- OpenAI API cost optimization
+- Embedding model versioning and updates
+
+## Development-Only Features
+The following features are marked for future development but not part of the current roadmap:
+- Indeed scraper (requires significant anti-bot measures)
+- LinkedIn scraper (requires significant anti-bot measures)
+- Multi-platform support
+- Platform-specific data models 

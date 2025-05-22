@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, DateTime, Text, Boolean, UUID, JSON
+from sqlalchemy import create_engine, Column, String, DateTime, Text, Boolean, UUID, JSON, Integer, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -78,6 +78,27 @@ class StackOverflowJob(Base):
     company_industry = Column(String, nullable=True)
     remote_work = Column(Boolean, nullable=True)
     raw_data = Column(JSON)  # Store complete raw data for future processing
+
+class ScrapingMetrics(Base):
+    __tablename__ = "scraping_metrics"
+
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
+    scraper_name = Column(String, nullable=False)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=True)
+    total_jobs_found = Column(Integer, default=0)
+    total_jobs_scraped = Column(Integer, default=0)
+    total_jobs_saved = Column(Integer, default=0)
+    failed_jobs = Column(Integer, default=0)
+    total_requests = Column(Integer, default=0)
+    failed_requests = Column(Integer, default=0)
+    total_duration = Column(Float, default=0.0)
+    success_rate = Column(Float, default=0.0)
+    errors = Column(JSON, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ScrapingMetrics(scraper='{self.scraper_name}', duration={self.total_duration:.2f}s)>"
 
 # Create all tables
 Base.metadata.create_all(engine)

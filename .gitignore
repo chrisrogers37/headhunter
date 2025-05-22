@@ -63,6 +63,7 @@ stackoverflow_debug_*.html
 stackoverflow_jobs_snapshot.html
 debug_*.html
 *.debug
+*_snapshot.html
 
 # OS generated files
 .DS_Store
@@ -80,6 +81,7 @@ Thumbs.db
 !package-lock.json
 !tsconfig.json
 !jsconfig.json
+metrics/
 
 # Coverage reports
 htmlcov/

@@ -14,6 +14,8 @@ from bs4 import BeautifulSoup
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from database.models import StackOverflowJob, SessionLocal
+from utils.rate_limiter import RateLimiter
+from utils.monitoring import ScraperMonitor
 
 # Configure logging
 logging.basicConfig(
@@ -30,51 +32,59 @@ class StackOverflowScraper:
         self.browser = None
         self.context = None
         self.page = None
-
-    def _random_delay(self, min_seconds: float = 1.0, max_seconds: float = 3.0):
-        """Add random delay between actions to appear more human-like."""
-        delay = random.uniform(min_seconds, max_seconds)
-        time.sleep(delay)
+        self.rate_limiter = RateLimiter(
+            min_delay=1.0,
+            max_delay=3.0,
+            max_requests_per_minute=30,
+            burst_size=5
+        )
+        self.monitor = ScraperMonitor("stackoverflow_scraper")
 
     def _setup_browser(self):
         """Set up the browser with anti-detection measures."""
-        self.browser = self.playwright.chromium.launch(
-            headless=self.headless,
-            args=[
-                '--disable-blink-features=AutomationControlled',
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-site-isolation-trials',
-                '--disable-web-security',
-                '--disable-features=IsolateOrigins',
-                '--disable-site-isolation-trials',
-            ]
-        )
+        try:
+            self.browser = self.playwright.chromium.launch(
+                headless=self.headless,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-features=IsolateOrigins,site-per-process',
+                    '--disable-site-isolation-trials',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins',
+                    '--disable-site-isolation-trials',
+                ]
+            )
 
-        # Create a new context with specific viewport and user agent
-        self.context = self.browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
-            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            geolocation={'latitude': 40.7128, 'longitude': -74.0060},  # New York coordinates
-            locale='en-US',
-            timezone_id='America/New_York',
-        )
+            # Create a new context with specific viewport and user agent
+            self.context = self.browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                geolocation={'latitude': 40.7128, 'longitude': -74.0060},  # New York coordinates
+                locale='en-US',
+                timezone_id='America/New_York',
+            )
 
-        # Set additional headers
-        self.context.set_extra_http_headers({
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1',
-            'Cache-Control': 'max-age=0',
-        })
+            # Set additional headers
+            self.context.set_extra_http_headers({
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
+            })
 
-        self.page = self.context.new_page()
+            self.page = self.context.new_page()
+            self.monitor.record_request(True)
+        except Exception as e:
+            self.monitor.record_request(False)
+            logger.error(f"Error setting up browser: {str(e)}")
+            raise
 
     def _extract_job_data(self, job_element) -> Dict:
         try:
@@ -160,6 +170,7 @@ class StackOverflowScraper:
                 'raw_data': soup.prettify(),
             }
         except Exception as e:
+            self.monitor.record_job_failed(e)
             logger.error(f"Error extracting job data: {str(e)}")
             return None
 
@@ -170,8 +181,10 @@ class StackOverflowScraper:
             job = StackOverflowJob(**job_data)
             db.add(job)
             db.commit()
+            self.monitor.record_job_saved()
             logger.info(f"Saved job: {job.title} at {job.company}")
         except Exception as e:
+            self.monitor.record_job_failed(e)
             logger.error(f"Error saving to database: {str(e)}")
             db.rollback()
         finally:
@@ -197,8 +210,15 @@ class StackOverflowScraper:
 
             search_url = f"{self.base_url}/?q={quote_plus(search_term)}&l={quote_plus(location)}"
             logger.info(f"Navigating to: {search_url}")
-            self.page.goto(search_url)
-            self._random_delay()
+            
+            try:
+                self.page.goto(search_url)
+                self.rate_limiter.wait()
+                self.monitor.record_request(True)
+            except Exception as e:
+                self.monitor.record_request(False)
+                self.rate_limiter.record_failure()
+                raise
 
             # Wait for job list and at least one job card
             try:
@@ -206,6 +226,8 @@ class StackOverflowScraper:
                 logger.info('Job list loaded.')
             except Exception as e:
                 logger.warning(f'Job list did not load in time: {e}')
+                self.monitor.record_request(False)
+                self.rate_limiter.record_failure()
 
             # Save HTML snapshot before scraping
             html_snapshot = self.page.content()
@@ -223,48 +245,79 @@ class StackOverflowScraper:
                         f.write(html)
                     logger.warning("No job cards found! Saved HTML for debugging.")
                     break
+                    
+                self.monitor.record_job_found()
                 logger.info(f"Found {num_cards} jobs on page {page_num}")
+                
                 for idx in range(num_cards):
                     if len(jobs) >= max_jobs:
                         break
+                        
                     card_selector = f'#job-list > li:nth-child({idx+1}) > div[data-jobkey]'
                     description = None
+                    
                     for attempt in range(3):
                         try:
                             # Scroll into view using JavaScript
                             self.page.eval_on_selector(card_selector, 'el => el.scrollIntoView({behavior: "instant", block: "center"})')
+                            self.rate_limiter.wait()
+                            
                             # Click the job card
                             self.page.click(card_selector, timeout=5000)
-                            self._random_delay(1, 2)
+                            self.rate_limiter.wait()
+                            
                             # Wait for right pane to update
                             self.page.wait_for_selector('#right-pane-content .css-11gcbyb', timeout=7000)
                             desc_elem = self.page.query_selector('#right-pane-content .css-11gcbyb')
                             description = desc_elem.inner_text() if desc_elem else None
+                            
+                            self.monitor.record_request(True)
+                            self.rate_limiter.record_success()
                             break  # Success
+                            
                         except Exception as e:
+                            self.monitor.record_request(False)
+                            self.rate_limiter.record_failure()
                             logger.warning(f"Attempt {attempt+1}: Could not extract description for job {idx+1}: {e}")
-                            self._random_delay(0.5, 1.0)
-                    # Extract other fields from the card as before
+                            self.rate_limiter.wait()
+                            
+                    # Extract other fields from the card
                     card = self.page.query_selector(card_selector)
                     job_data = self._extract_job_data(card) if card else None
+                    
                     if job_data:
                         job_data['description'] = description
                         jobs.append(job_data)
                         self._save_to_database(job_data)
-                        self._random_delay(0.5, 1.5)
+                        self.monitor.record_job_scraped()
+                        
                 # Next page logic
                 next_button = self.page.query_selector('a[aria-label="Next page"]')
                 if not next_button:
                     logger.info("No more pages available")
                     break
-                next_button.click()
-                self._random_delay(2, 4)
-                page_num += 1
+                    
+                try:
+                    next_button.click()
+                    self.rate_limiter.wait()
+                    self.monitor.record_request(True)
+                    page_num += 1
+                except Exception as e:
+                    self.monitor.record_request(False)
+                    self.rate_limiter.record_failure()
+                    logger.error(f"Error navigating to next page: {e}")
+                    break
+                    
             logger.info(f"Scraped {len(jobs)} jobs in total")
+            self.monitor.log_summary()
+            self.monitor.save_metrics()
             return jobs
+            
         except Exception as e:
             logger.error(f"Error during scraping: {str(e)}")
+            self.monitor.record_job_failed(e)
             return jobs if 'jobs' in locals() else []
+            
         finally:
             if self.browser:
                 self.browser.close()
